@@ -1,0 +1,15 @@
+node_modules/
+out/
+tmp/
+fixtures/
+.env
+*.mp4
+*.webm
+*.mp3
+*.wav
+captures.json
+captions.json
+narration-timing.json
+qa-report.json
+.DS_Store
+*.log

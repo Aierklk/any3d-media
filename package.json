@@ -1,0 +1,44 @@
+{
+  "name": "any3d-media",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Any3D promotional video + social card production pipeline",
+  "type": "module",
+  "scripts": {
+    "capture": "tsx capture/recorder.ts",
+    "narrate": "tsx narration/tts.ts",
+    "captions": "tsx captions/build.ts",
+    "card": "tsx card/render.ts",
+    "card:generate": "tsx card/generate.ts",
+    "render": "tsx scripts/render.ts",
+    "card": "tsx card/render.ts",
+    "card:generate": "tsx card/generate.ts",
+    "qa": "tsx qa/visual-qa.ts",
+    "studio": "remotion studio",
+    "all": "tsx scripts/run-all.ts",
+    "all:video": "tsx scripts/run-all.ts",
+    "all:cards": "tsx scripts/run-cards.ts"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.477",
+    "@remotion/captions": "4.0.477",
+    "@remotion/cli": "4.0.477",
+    "@remotion/media-utils": "4.0.477",
+    "@remotion/renderer": "4.0.477",
+    "@remotion/transitions": "4.0.477",
+    "edge-tts-node": "^1.5.7",
+    "ffprobe-static": "3.1.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "remotion": "4.0.477",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "25.5.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "playwright": "1.60.0",
+    "tsx": "4.20.6",
+    "typescript": "5.9.2"
+  }
+}
