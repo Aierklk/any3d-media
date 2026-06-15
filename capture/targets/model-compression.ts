@@ -2,15 +2,9 @@ import type { Page } from "playwright";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { measure } from "../anchors.js";
+import type { AnchorMap, CaptureFlowHooks } from "../types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-interface AnchorBox {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
 
 /**
  * Drives the model-compression tool through its full demo flow and
@@ -18,19 +12,25 @@ interface AnchorBox {
  *
  * Every wait is condition-based so the recording is stable regardless
  * of machine speed. We never sleep a fixed duration for state changes.
+ *
+ * `hooks.onAnchor` fires after each zone becomes stable — the video
+ * recorder ignores it; the card screenshoter uses it to capture a clean
+ * element screenshot at that step (no loading state, no full-viewport crop).
  */
 export default {
-  async run(page: Page, fixtureFile: string): Promise<Record<string, AnchorBox>> {
-    const anchors: Record<string, AnchorBox> = {};
-    const fixturePath = resolve(__dirname, "../../../", fixtureFile);
+  async run(page: Page, fixtureFile: string, hooks?: CaptureFlowHooks): Promise<AnchorMap> {
+    const anchors: AnchorMap = {};
+    const fixturePath = resolve(__dirname, "../../", fixtureFile);
 
     anchors.establish = { x: 0, y: 0, w: 1440, h: 900 };
 
     await page.waitForSelector('[role="button"]', { state: "visible", timeout: 15000 });
     await page.waitForTimeout(800);
-    anchors["upload-zone"] = await measure(page, '[role="button"][aria-label]');
+    const uploadZone = page.locator('[role="button"][aria-label]');
+    anchors["upload-zone"] = await measure(page, uploadZone);
+    await hooks?.onAnchor?.("upload-zone", uploadZone, page);
 
-    const fileInput = page.locator('input[type="file"]');
+    const fileInput = page.locator('input[type="file"][accept*=".glb"]');
     await fileInput.setInputFiles(fixturePath);
 
     console.log("[flow:model-compression] Waiting for model to load...");
@@ -45,12 +45,18 @@ export default {
       { timeout: 30000 },
     );
     await page.waitForTimeout(2000);
-    anchors["settings-panel"] = await measure(page, ".grid > div:first-child");
-    anchors["preview-canvas"] = await measure(page, ".grid > div:last-child");
+
+    const settingsPanel = page.locator(".grid > div:first-child");
+    const previewCanvas = page.locator(".grid > div:last-child");
+    anchors["settings-panel"] = await measure(page, settingsPanel);
+    await hooks?.onAnchor?.("settings-panel", settingsPanel, page);
+    anchors["preview-canvas"] = await measure(page, previewCanvas);
+    await hooks?.onAnchor?.("preview-canvas", previewCanvas, page);
 
     const compressBtn = page.locator("button", { hasText: /压缩|Compress/ }).first();
     await compressBtn.waitFor({ state: "visible" });
     anchors["compress-button"] = await measure(page, compressBtn);
+    await hooks?.onAnchor?.("compress-button", compressBtn, page);
 
     await compressBtn.click();
 
@@ -67,6 +73,13 @@ export default {
 
     const downloadBtn = page.locator("button", { hasText: /下载|Download/ }).first();
     anchors["download-result"] = await measure(page, downloadBtn);
+    await hooks?.onAnchor?.("download-result", downloadBtn, page);
+
+    // Re-measure the preview AFTER compression so cards can capture the
+    // post-compression model. preview-canvas above was measured pre-click;
+    // the same locator now resolves to the compressed result state.
+    anchors["preview-result"] = await measure(page, previewCanvas);
+    await hooks?.onAnchor?.("preview-result", previewCanvas, page);
 
     return anchors;
   },

@@ -10,7 +10,7 @@ import { chromium } from "playwright";
 import { mkdir } from "node:fs/promises";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { RenderTarget, CardStyle } from "./types.js";
+import type { RenderTarget, CardStyle, Lang } from "./types.js";
 import { generateCards } from "./generate.js";
 import { buildToolCardSpec } from "./specs.js";
 
@@ -25,7 +25,12 @@ export async function renderCards(
   const outDir = join(ROOT, "out", toolId, "cards");
   await mkdir(outDir, { recursive: true });
 
-  const browser = await chromium.launch({ headless: true });
+  // Drive a system-installed browser (Chrome/Edge) when CAPTURE_CHANNEL is set,
+  // so PNG rendering works without Playwright's bundled Chromium download.
+  const browser = await chromium.launch({
+    headless: true,
+    channel: process.env.CAPTURE_CHANNEL,
+  });
   const context = await browser.newContext({
     viewport: { width: 2200, height: 1500 },
     deviceScaleFactor: 1,
@@ -60,7 +65,8 @@ export async function renderCards(
 
 const targetId = process.argv[2] ?? "model-compression";
 const styleArg = (process.argv[3] as CardStyle) ?? "editorial";
+const langArg = (process.argv[4] as Lang) ?? "zh";
 
-const spec = await buildToolCardSpec(targetId, styleArg);
+const spec = await buildToolCardSpec(targetId, styleArg, langArg);
 const { htmlPath, targets } = await generateCards(spec);
 await renderCards(targetId, htmlPath, targets);

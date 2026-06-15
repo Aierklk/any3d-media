@@ -3,11 +3,11 @@ import { generateNarration } from "../narration/tts.js";
 import { buildCaptions } from "../captions/build.js";
 import { render } from "./render.js";
 import { runVisualQA } from "../qa/visual-qa.js";
-import { extractCardFrames } from "./extract-frames.js";
+import { captureCardShots } from "../capture/card-shots.js";
 import { generateCards } from "../card/generate.js";
 import { renderCards } from "../card/render.js";
 import { buildToolCardSpec } from "../card/specs.js";
-import type { CardStyle } from "../card/types.js";
+import type { CardStyle, Lang } from "../card/types.js";
 import { join } from "node:path";
 
 const STEPS = ["capture", "narrate", "captions", "render", "qa", "frames", "cards"] as const;
@@ -17,6 +17,7 @@ async function main() {
   const skipRaw = process.argv[3] ?? "";
   const skip = skipRaw.split(",").map((s) => s.trim());
   const cardStyle: CardStyle = (process.argv[4] as CardStyle) ?? "editorial";
+  const cardLang: Lang = (process.argv[5] as Lang) ?? "zh";
 
   console.log(`\n=== any3d-media pipeline: ${targetId} ===\n`);
 
@@ -47,13 +48,13 @@ async function main() {
   }
 
   if (!skip.includes("frames")) {
-    console.log("\n--- Step 6/7: Extract card frames ---");
-    await extractCardFrames(targetId);
+    console.log("\n--- Step 6/7: Capture card screenshots ---");
+    await captureCardShots(targetId);
   }
 
   if (!skip.includes("cards")) {
     console.log("\n--- Step 7/7: Generate social cards ---");
-    const spec = await buildToolCardSpec(targetId, cardStyle);
+    const spec = await buildToolCardSpec(targetId, cardStyle, cardLang);
     const { htmlPath, targets } = await generateCards(spec);
     await renderCards(targetId, htmlPath, targets);
   }

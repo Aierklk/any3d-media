@@ -10,6 +10,12 @@ export type CardStyle = "editorial" | "swiss";
 
 export type Platform = "xhs" | "wechat-wide" | "wechat-square";
 
+/** 卡片文案语言。截图的 UI 语言固定跟随站点默认路由（见 capture/card-shots）。 */
+export type Lang = "zh" | "en";
+
+/** frame-shot 容器画幅，需匹配被截元素的比例以减少 object-fit 留白。 */
+export type ShotAspect = "16x10" | "16x9" | "21x9" | "3x2" | "4x3" | "3x4" | "1x1";
+
 export interface CardFrame {
   id: string;
   platform: Platform;
@@ -19,6 +25,8 @@ export interface CardFrame {
   body?: string[];
   /** Path to a screenshot image (relative to the card HTML output dir). */
   screenshot?: string;
+  /** Container aspect ratio for the screenshot well. Defaults to 16x10. */
+  shotAspect?: ShotAspect;
   /** Optional KPI/metric items for data-style cards. */
   metrics?: Array<{ label: string; value: string }>;
   /** Cover-only pages skip body and show title + visual. */
@@ -28,6 +36,7 @@ export interface CardFrame {
 export interface CardSpec {
   toolId: string;
   style: CardStyle;
+  lang: Lang;
   theme?: string;
   frames: CardFrame[];
 }

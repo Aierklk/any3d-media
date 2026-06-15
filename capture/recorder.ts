@@ -15,6 +15,8 @@ import { mkdir, writeFile, readdir } from "node:fs/promises";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getTarget, type ShotSpec } from "../config/video-targets.js";
+import type { AnchorMap } from "./types.js";
+import { loadFlow } from "./flow.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -27,7 +29,7 @@ export interface CaptureResult {
   videoPath: string;
   framesDir: string;
   frameCount: number;
-  anchors: Record<string, { x: number; y: number; w: number; h: number }>;
+  anchors: AnchorMap;
   resolvedShots: ShotSpec[];
 }
 
@@ -39,8 +41,11 @@ export async function recordTarget(targetId: string): Promise<CaptureResult> {
   await mkdir(framesDir, { recursive: true });
 
   console.log(`[recorder] Launching browser for "${target.id}"...`);
+  // Drive a system-installed browser (Chrome/Edge) when CAPTURE_CHANNEL is set,
+  // avoiding Playwright's bundled Chromium download. channel undefined => bundled.
   const browser = await chromium.launch({
     headless: false,
+    channel: process.env.CAPTURE_CHANNEL,
     args: [
       "--use-gl=desktop",
       "--enable-webgl",
@@ -81,6 +86,7 @@ export async function recordTarget(targetId: string): Promise<CaptureResult> {
   await page.goto(fullUrl, { waitUntil: "networkidle" });
 
   const flow = await loadFlow(target.id);
+  // Video recording does not pass hooks — onAnchor is left to the card screenshoter.
   const anchors = await flow.run(page, target.fixtureFile);
 
   await page.waitForTimeout(500);
@@ -108,15 +114,6 @@ export async function recordTarget(targetId: string): Promise<CaptureResult> {
   await writeFile(join(outDir, "captures.json"), JSON.stringify(result, null, 2));
   console.log(`[recorder] Done. ${frameIndex} frames, ${Object.keys(anchors).length} anchors.`);
   return result;
-}
-
-interface CaptureFlow {
-  run(page: Page, fixtureFile: string): Promise<CaptureResult["anchors"]>;
-}
-
-async function loadFlow(targetId: string): Promise<CaptureFlow> {
-  const mod = await import(`./targets/${targetId}.js`);
-  return mod.default as CaptureFlow;
 }
 
 const targetId = process.argv[2] ?? "model-compression";

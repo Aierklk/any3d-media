@@ -10,7 +10,7 @@ import { readFile, writeFile, mkdir, copyFile, cp } from "node:fs/promises";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
-import type { CardSpec, CardFrame, CardStyle, RenderTarget } from "./types.js";
+import type { CardSpec, CardFrame, CardStyle, Lang, RenderTarget } from "./types.js";
 import { buildToolCardSpec } from "./specs.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -49,9 +49,23 @@ export async function generateCards(spec: CardSpec): Promise<{ htmlPath: string;
   }
 
   const title = spec.frames[0]?.title ?? spec.toolId;
-  templateHtml = templateHtml
-    .replace(/\[必填\][^<]*/g, title)
-    .replace(/<!--\s*POSTERS_HERE\s*-->[\s\S]*?<\/main>/, `${framesHtml}\n  </main>`);
+  templateHtml = templateHtml.replace(/\[必填\][^<]*/g, title);
+
+  // The marker appears twice in the template: once inside the <style> doc
+  // comment, once at the real insertion point in <main>. A regex replace
+  // would match the first one and swallow the entire stylesheet up to
+  // </main>. Anchor on the body-level (last) marker and slice instead.
+  const marker = "<!-- POSTERS_HERE -->";
+  const markerIdx = templateHtml.lastIndexOf(marker);
+  const mainEnd = templateHtml.indexOf("</main>", markerIdx);
+  if (markerIdx === -1 || mainEnd === -1) {
+    throw new Error("Card template missing <!-- POSTERS_HERE --> or </main>");
+  }
+  templateHtml =
+    templateHtml.slice(0, markerIdx) +
+    framesHtml +
+    "\n  </main>" +
+    templateHtml.slice(mainEnd + "</main>".length);
 
   const htmlPath = join(outDir, "index.html");
   await writeFile(htmlPath, templateHtml);
@@ -100,7 +114,8 @@ function renderEditorialInner(f: CardFrame): string {
   }
 
   if (f.screenshot) {
-    parts.push(`        <div class="frame-shot r-16x10 corners-sm shadow-soft bg-paper-2 inset-sub">`);
+    const ratio = `r-${f.shotAspect ?? "16x10"}`;
+    parts.push(`        <div class="frame-shot ${ratio} corners-sm shadow-soft bg-paper-2 inset-sub">`);
     parts.push(`          <img src="${f.screenshot}" alt="${f.title}" style="width:100%;height:100%;object-fit:contain">`);
     parts.push(`        </div>`);
   }
@@ -135,7 +150,8 @@ function renderSwissInner(f: CardFrame): string {
   }
 
   if (f.screenshot) {
-    parts.push(`        <div class="frame-shot r-16x10 corners-sq shadow-none bg-grey-1 inset-bal">`);
+    const ratio = `r-${f.shotAspect ?? "16x10"}`;
+    parts.push(`        <div class="frame-shot ${ratio} corners-sq shadow-none bg-grey-1 inset-bal">`);
     parts.push(`          <img src="${f.screenshot}" alt="${f.title}">`);
     parts.push(`        </div>`);
   }
@@ -166,13 +182,21 @@ async function copyAssetsTo(dstAssets: string): Promise<void> {
   } catch {}
 
   if (existsSync(srcBg)) {
-    await cp(srcBg, dstBg, { recursive: true });
+    // Backgrounds are decorative; never let a copy failure (Windows file
+    // locks, AV scanning a .webp) block card generation. force overwrites
+    // stale copies, and we warn-and-skip on anything still locked.
+    try {
+      await cp(srcBg, dstBg, { recursive: true, force: true });
+    } catch (e) {
+      console.warn(`[card:generate] screenshot-backgrounds copy skipped: ${(e as Error).message}`);
+    }
   }
 }
 
 const targetId = process.argv[2] ?? "model-compression";
 const styleArg = (process.argv[3] as CardStyle) ?? "editorial";
-const spec = await buildToolCardSpec(targetId, styleArg);
+const langArg = (process.argv[4] as Lang) ?? "zh";
+const spec = await buildToolCardSpec(targetId, styleArg, langArg);
 generateCards(spec).catch((e) => {
   console.error(e);
   process.exit(1);
