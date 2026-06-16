@@ -37,10 +37,29 @@ export async function renderCards(
   });
   const page = await context.newPage();
 
-  await page.goto(`file:///${htmlPath.replace(/\\/g, "/")}`, { waitUntil: "networkidle" });
+  // Resolve to absolute file:// URL so relative image paths in the HTML
+  // (../frames/xxx.png) resolve correctly regardless of CWD.
+  const absHtmlPath = resolve(htmlPath).replace(/\\/g, "/");
+  await page.goto(`file:///${absHtmlPath}`, { waitUntil: "domcontentloaded", timeout: 30000 });
 
   await page.evaluate(() => document.fonts.ready);
-  await page.waitForTimeout(800);
+  // Extra wait for images to fully decode/render
+  await page.waitForTimeout(1500);
+
+  // Verify all images loaded successfully
+  const imgStatus = await page.evaluate(() => {
+    const imgs = Array.from(document.querySelectorAll(".frame-shot img"));
+    return imgs.map((el) => ({
+      src: (el as HTMLImageElement).src,
+      naturalWidth: (el as HTMLImageElement).naturalWidth,
+      complete: (el as HTMLImageElement).complete,
+    }));
+  });
+  const broken = imgStatus.filter((s) => !s.complete || s.naturalWidth === 0);
+  if (broken.length > 0) {
+    console.warn(`[card:render] ${broken.length} image(s) failed to load:`);
+    for (const b of broken) console.warn(`  ${b.src} (complete=${b.complete}, w=${b.naturalWidth})`);
+  }
 
   const outputPaths: string[] = [];
 

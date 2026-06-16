@@ -14,6 +14,7 @@ import { chromium, type Page } from "playwright";
 import { mkdir, writeFile, readdir } from "node:fs/promises";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import "dotenv/config";
 import { getTarget, type ShotSpec } from "../config/video-targets.js";
 import type { AnchorMap } from "./types.js";
 import { loadFlow } from "./flow.js";

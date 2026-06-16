@@ -34,26 +34,26 @@ interface ToolCopy {
 const COPY: Record<Lang, ToolCopy> = {
   zh: {
     coverTitle: "3D 模型压缩",
-    coverSubtitle: "浏览器内一键减重 70%",
+    coverSubtitle: "浏览器内一键减重，最高 95%",
     squareTitle: "3D 模型压缩",
     steps: [
       {
-        title: "上传模型文件",
-        body: ["支持 GLB、GLTF、OBJ、FBX、STL、PLY 格式", "拖拽或点击上传，浏览器内处理"],
-      },
-      {
         title: "调整压缩参数",
-        body: ["网格简化比例", "纹理质量与最大尺寸", "Draco 压缩级别"],
+        body: [
+          "智能网格简化 — 可视化滑块控制多边形精简比例",
+          "Draco 几何编码 — 不减面数也能大幅压缩，视觉几乎无差异",
+          "纹理智能压缩 — 支持 WebP / JPEG / KTX2 等多种格式，自动检测 + 尺寸缩放",
+        ],
       },
       {
         title: "一键压缩",
-        body: ["点击压缩按钮，几秒内完成", "实时查看原始与压缩效果对比"],
+        body: ["浏览器内全流程处理 + 实时 3D 预览，无需上传服务器，隐私安全"],
       },
       {
         title: "压缩效果",
         metrics: [
-          { label: "体积减少", value: "70%" },
-          { label: "处理时间", value: "5s" },
+          { label: "体积减少", value: "≤95%" },
+          { label: "处理时间", value: "10s" },
           { label: "格式输出", value: "GLB" },
           { label: "质量损失", value: "极低" },
         ],
@@ -62,25 +62,25 @@ const COPY: Record<Lang, ToolCopy> = {
   },
   en: {
     coverTitle: "3D Model Compression",
-    coverSubtitle: "70% smaller, right in the browser",
+    coverSubtitle: "Up to 95% smaller, right in the browser",
     squareTitle: "3D Compression",
     steps: [
       {
-        title: "Upload your model",
-        body: ["GLB, GLTF, OBJ, FBX, STL, PLY supported", "Drag-and-drop or click — processed in-browser"],
-      },
-      {
         title: "Tune compression",
-        body: ["Mesh simplification ratio", "Texture quality & max size", "Draco compression level"],
+        body: [
+          "Smart mesh simplification — visual slider controls polygon reduction ratio",
+          "Draco geometry encoding — compress without reducing faces, visually lossless",
+          "Smart texture compression — auto-detect textures, WebP conversion + resize + quality tuning",
+        ],
       },
       {
         title: "One-click compress",
-        body: ["Hit compress — done in seconds", "Compare original vs. compressed live"],
+        body: ["Full in-browser pipeline, no server upload, privacy-safe", "Real-time 3D preview with instant visual feedback"],
       },
       {
         title: "Results",
         metrics: [
-          { label: "Size reduction", value: "70%" },
+          { label: "Size reduction", value: "Up to 95%" },
           { label: "Time", value: "5s" },
           { label: "Output", value: "GLB" },
           { label: "Quality loss", value: "Minimal" },
@@ -92,45 +92,22 @@ const COPY: Record<Lang, ToolCopy> = {
 
 export async function buildToolCardSpec(toolId: string, style: CardStyle, lang: Lang = "zh"): Promise<CardSpec> {
   const copy = COPY[lang];
-  const [upload, settings, compress, results] = copy.steps;
+  const [settings, compress, results] = copy.steps;
 
   const frames: CardFrame[] = [
     {
-      id: "xhs-01",
+      id: "xhs-infographic",
       platform: "xhs",
-      role: "cover",
+      role: "infographic",
       title: copy.coverTitle,
       subtitle: copy.coverSubtitle,
-    },
-    {
-      id: "xhs-02",
-      platform: "xhs",
-      role: "content",
-      ...upload,
-      screenshot: "../frames/upload-zone.png",
-      shotAspect: "16x9",
-    },
-    {
-      id: "xhs-03",
-      platform: "xhs",
-      role: "content",
-      ...settings,
-      screenshot: "../frames/settings-panel.png",
-      shotAspect: "3x4",
-    },
-    {
-      id: "xhs-04",
-      platform: "xhs",
-      role: "content",
-      ...compress,
-      screenshot: "../frames/preview-result.png",
-      shotAspect: "1x1",
-    },
-    {
-      id: "xhs-05",
-      platform: "xhs",
-      role: "summary",
-      ...results,
+      // All content merged into one frame — the generator builds a
+      // single rich poster instead of N separate cards.
+      screenshots: [
+        { src: "./frames/settings-preview.png", aspect: "4x3" },
+      ],
+      body: [...(settings.body ?? []), ...(compress.body ?? [])],
+      metrics: results.metrics,
     },
     {
       id: "wechat-wide",
@@ -152,6 +129,7 @@ export async function buildToolCardSpec(toolId: string, style: CardStyle, lang: 
     style,
     lang,
     theme: style === "editorial" ? "ink-classic" : undefined,
+    accent: style === "swiss" ? "any3d-blue" : undefined,
     frames,
   };
 }

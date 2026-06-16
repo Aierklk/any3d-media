@@ -25,12 +25,14 @@ export interface CardFrame {
   body?: string[];
   /** Path to a screenshot image (relative to the card HTML output dir). */
   screenshot?: string;
+  /** Multiple screenshots for infographic layout (replaces single screenshot). */
+  screenshots?: Array<{ src: string; caption: string; aspect: ShotAspect }>;
   /** Container aspect ratio for the screenshot well. Defaults to 16x10. */
   shotAspect?: ShotAspect;
   /** Optional KPI/metric items for data-style cards. */
   metrics?: Array<{ label: string; value: string }>;
   /** Cover-only pages skip body and show title + visual. */
-  role: "cover" | "content" | "summary" | "outro";
+  role: "cover" | "content" | "summary" | "outro" | "infographic";
 }
 
 export interface CardSpec {
@@ -38,6 +40,8 @@ export interface CardSpec {
   style: CardStyle;
   lang: Lang;
   theme?: string;
+  /** Swiss accent name (ikb | lemon-yellow | lemon-green | safety-orange). Only used when style === "swiss". */
+  accent?: string;
   frames: CardFrame[];
 }
 

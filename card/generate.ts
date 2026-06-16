@@ -39,12 +39,20 @@ export async function generateCards(spec: CardSpec): Promise<{ htmlPath: string;
 
   await copyAssetsTo(assetsDir);
 
-  const framesHtml = spec.frames.map((f) => renderFrame(f, spec.style)).join("\n");
+  const framesHtml = spec.frames.map((f) => renderFrame(f, spec.style, spec.accent)).join("\n");
 
   if (spec.theme) {
     templateHtml = templateHtml.replace(
       /data-theme="[^"]*"/,
       `data-theme="${spec.theme}"`,
+    );
+  }
+
+  // For Swiss style, set data-accent on <html> so CSS variables resolve
+  if (spec.style === "swiss" && spec.accent) {
+    templateHtml = templateHtml.replace(
+      /data-accent="[^"]*"/,
+      `data-accent="${spec.accent}"`,
     );
   }
 
@@ -84,10 +92,10 @@ export async function generateCards(spec: CardSpec): Promise<{ htmlPath: string;
   return { htmlPath, targets };
 }
 
-function renderFrame(frame: CardFrame, style: CardStyle): string {
+function renderFrame(frame: CardFrame, style: CardStyle, accent?: string): string {
   const cls = platformClass(frame.platform);
   const innerFn = style === "editorial" ? renderEditorialInner : renderSwissInner;
-  const inner = innerFn(frame);
+  const inner = innerFn(frame, accent);
 
   return `    <section class="poster ${cls}" id="${frame.id}">\n${inner}\n    </section>`;
 }
@@ -138,38 +146,146 @@ function renderEditorialInner(f: CardFrame): string {
   return parts.join("\n");
 }
 
-function renderSwissInner(f: CardFrame): string {
+/**
+ * Map accent names to their screenshot background texture classes.
+ * These are the vibrant style-b textured backgrounds — rich gradients,
+ * halftones, and dot patterns that give each deck its colour personality.
+ */
+const SWISS_SHOT_BG: Record<string, string> = {
+  ikb:            "bg-asset-ikb-dot",
+  "lemon-yellow": "bg-asset-lemon-grid",
+  "lemon-green":  "bg-asset-lemon-green-dot",
+  "safety-orange": "bg-asset-safety-orange",
+  "any3d-blue":   "bg-asset-any3d-blue",
+};
+
+/** Default to IKB Klein Blue if accent is unknown. */
+function shotBgForAccent(accent?: string): string {
+  return SWISS_SHOT_BG[accent ?? ""] ?? SWISS_SHOT_BG.ikb;
+}
+
+function renderSwissInner(f: CardFrame, accent?: string): string {
   const parts: string[] = [];
+  const shotBg = shotBgForAccent(accent);
+
+  // Every poster gets a subtle dot texture layer for depth
+  parts.push(`      <div class="dot-mat"></div>`);
   parts.push(`      <div class="content">`);
 
-  if (f.role === "cover") {
-    parts.push(`        <h1 class="h-hero">${f.title}</h1>`);
-    if (f.subtitle) parts.push(`        <p class="lead">${f.subtitle}</p>`);
-  } else {
-    parts.push(`        <h2 class="h-xl">${f.title}</h2>`);
-  }
-
-  if (f.screenshot) {
-    const ratio = `r-${f.shotAspect ?? "16x10"}`;
-    parts.push(`        <div class="frame-shot ${ratio} corners-sq shadow-none bg-grey-1 inset-bal">`);
-    parts.push(`          <img src="${f.screenshot}" alt="${f.title}">`);
+  if (f.role === "infographic") {
+    // ── INFOGRAPHIC: all content in ONE rich poster ──────────
+    // Header: brand tag + full-width title + subtitle (no side card)
+    parts.push(`        <div class="stack gap-4">`);
+    parts.push(`          <p class="t-cat">ANY3D · CC</p>`);
+    parts.push(`          <h1 class="h-statement">${f.title}</h1>`);
+    if (f.subtitle) parts.push(`          <p class="lead">${f.subtitle}</p>`);
     parts.push(`        </div>`);
-  }
 
-  if (f.body && f.body.length > 0) {
-    for (const line of f.body) parts.push(`        <p class="body">${line}</p>`);
-  }
-
-  if (f.metrics && f.metrics.length > 0) {
-    parts.push(`        <div class="matrix-fill">`);
-    for (const m of f.metrics) {
-      parts.push(`          <div class="cell"><span class="num-xl">${m.value}</span><span class="t-meta">${m.label}</span></div>`);
+    // Screenshot: single large centered shot (top-bottom layout)
+    if (f.screenshots && f.screenshots.length > 0) {
+      parts.push(`          <div class="stack gap-4" style="margin-top:${varSp(6)};align-items:center">`);
+      for (const shot of f.screenshots) {
+        const ratio = `r-${shot.aspect}`;
+        parts.push(`            <div class="frame-shot ${ratio} corners-md shadow-ed ${shotBg} inset-sub" style="width:100%;max-width:100%">`);
+        parts.push(`              <img src="${shot.src}" alt="${shot.caption}">`);
+        parts.push(`            </div>`);
+        if (shot.caption) parts.push(`            <p class="swiss-img-caption">${shot.caption}</p>`);
+      }
+      parts.push(`          </div>`);
     }
+
+    // Feature bullets
+    if (f.body && f.body.length > 0) {
+      parts.push(`          <div class="stack gap-3" style="margin-top:${varSp(6)}">`);
+      for (const line of f.body.slice(0, 4)) { // max 4 bullets to fit
+        parts.push(`            <div class="row gap-4" style="align-items:center">`);
+        parts.push(`              <div style="width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0"></div>`);
+        parts.push(`              <p class="body" style="margin:0">${line}</p>`);
+        parts.push(`            </div>`);
+      }
+      parts.push(`          </div>`);
+    }
+
+    // Metrics row: show all 4 in a grid
+    if (f.metrics && f.metrics.length > 0) {
+      parts.push(`          <div class="grid-4" style="margin-top:auto;padding-top:${varSp(7)};border-top:1px solid var(--grey-2)">`);
+      for (const m of f.metrics) {
+        parts.push(`            <div class="stack gap-2" style="align-items:flex-start">`);
+        parts.push(`              <span class="t-meta">${m.label.toUpperCase()}</span>`);
+        parts.push(`              <span class="h-md" style="color:var(--accent)">${m.value}</span>`);
+        parts.push(`            </div>`);
+      }
+      parts.push(`          </div>`);
+    }
+
     parts.push(`        </div>`);
+
+  } else if (f.role === "cover") {
+    // Cover: accent category line + oversized statement + lead
+    parts.push(`        <div class="stack gap-7">`);
+    parts.push(`          <p class="t-cat">ANY3D · CC</p>`);
+    parts.push(`          <h1 class="h-statement">${f.title}</h1>`);
+    if (f.subtitle) parts.push(`          <p class="lead">${f.subtitle}</p>`);
+    parts.push(`        </div>`);
+    parts.push(`        <div class="grow"></div>`);
+    parts.push(`        <hr class="hr-accent">`);
+    parts.push(`        <div class="row gap-6">`);
+    parts.push(`          <p class="t-meta">Vol. 01</p>`);
+    parts.push(`          <p class="t-meta">/ Any3D</p>`);
+    parts.push(`        </div>`);
+  } else {
+    // Content: title + screenshot with coloured texture bg + body copy
+    parts.push(`        <h2 class="h-xl">${f.title}</h2>`);
+
+    if (f.screenshot) {
+      const ratio = `r-${f.shotAspect ?? "16x10"}`;
+      // Use the vibrant style-b textured background instead of flat grey
+      parts.push(`        <div class="frame-shot ${ratio} corners-md shadow-ed ${shotBg} inset-sub">`);
+      parts.push(`          <img src="${f.screenshot}" alt="${f.title}">`);
+      parts.push(`        </div>`);
+      parts.push(`        <p class="swiss-img-caption">${f.title.toLowerCase()} · screenshot</p>`);
+    }
+
+    if (f.body && f.body.length > 0) {
+      parts.push(`        <div class="stack gap-4">`);
+      for (const line of f.body) parts.push(`          <p class="body">${line}</p>`);
+      parts.push(`        </div>`);
+    }
+
+    if (f.metrics && f.metrics.length > 0) {
+      // Summary: matrix with one accent highlight cell + hero stat bottom
+      parts.push(`        <div class="matrix-fill">`);
+      f.metrics.forEach((m, i) => {
+        const isHighlight = i === 0; // first metric gets the accent cell
+        const cellCls = isHighlight ? "matrix-cell is-accent" : "matrix-cell";
+        parts.push(`          <div class="${cellCls}">`);
+        parts.push(`            <span class="cell-nb">0${i + 1}</span>`);
+        parts.push(`            <span class="cell-title">${m.label}</span>`);
+        parts.push(`            <span class="num-xl">${m.value}</span>`);
+        parts.push(`          </div>`);
+      });
+      parts.push(`        </div>`);
+      // Big hero number below the matrix
+      const heroValue = f.metrics[0]?.value ?? "";
+      const heroLabel = f.metrics[0]?.label ?? "";
+      parts.push(`        <div class="hero-stat-bottom">`);
+      parts.push(`          <span class="num-mega">${heroValue}</span>`);
+      parts.push(`          <span class="t-meta">${heroLabel.toUpperCase()}</span>`);
+      parts.push(`        </div>`);
+    }
   }
 
   parts.push(`      </div>`);
   return parts.join("\n");
+}
+
+/** Helper: resolve a spacing token name for inline styles. */
+function varSp(n: number): string {
+  const map: Record<number, string> = {
+    2: "var(--sp-4)", 3: "var(--sp-5)", 4: "var(--sp-5)",
+    5: "var(--sp-6)", 6: "var(--sp-7)", 7: "var(--sp-7)", 8: "var(--sp-8)",
+  };
+  return map[n] ?? `${n * 8}px`;
 }
 
 async function copyAssetsTo(dstAssets: string): Promise<void> {

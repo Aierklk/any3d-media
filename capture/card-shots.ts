@@ -15,6 +15,7 @@ import { chromium } from "playwright";
 import { mkdir } from "node:fs/promises";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import "dotenv/config";
 import { getTarget } from "../config/video-targets.js";
 import type { CaptureFlowHooks } from "./types.js";
 import { loadFlow } from "./flow.js";
@@ -63,10 +64,16 @@ export async function captureCardShots(targetId: string): Promise<string[]> {
   const hooks: CaptureFlowHooks = {
     // The flow has already waitFor'd each anchor stable before measuring.
     // We only add a short visual settle for fonts/animations (not a state wait).
-    async onAnchor(label, locator, p): Promise<void> {
+    async onAnchor(label, locator, p, clip): Promise<void> {
       await p.waitForTimeout(300);
       const outPath = join(framesDir, `${label}.png`);
-      await locator.screenshot({ path: outPath, type: "png" });
+      if (clip) {
+        // Use page-level screenshot with clip rect for merged/combined regions
+        await p.screenshot({ path: outPath, type: "png", clip: { x: clip.x, y: clip.y, width: clip.w, height: clip.h } });
+      } else {
+        // Default: element screenshot
+        await locator.screenshot({ path: outPath, type: "png" });
+      }
       shots.push(outPath);
       console.log(`[card-shots] ${label}.png`);
     },

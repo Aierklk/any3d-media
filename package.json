@@ -36,6 +36,7 @@
     "@types/node": "25.5.0",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "dotenv": "^17.4.2",
     "playwright": "1.60.0",
     "tsx": "4.20.6",
     "typescript": "5.9.2"

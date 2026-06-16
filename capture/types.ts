@@ -15,7 +15,7 @@ export type AnchorMap = Record<string, AnchorBox>;
  * 视频录制不传；卡片截图流程用它对核心元素做 element.screenshot()。
  */
 export interface CaptureFlowHooks {
-  onAnchor?(label: string, locator: Locator, page: Page): Promise<void>;
+  onAnchor?(label: string, locator: Locator, page: Page, clip?: { x: number; y: number; w: number; h: number }): Promise<void>;
 }
 
 /**

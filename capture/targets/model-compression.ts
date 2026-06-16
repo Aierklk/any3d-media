@@ -13,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * Every wait is condition-based so the recording is stable regardless
  * of machine speed. We never sleep a fixed duration for state changes.
  *
- * `hooks.onAnchor` fires after each zone becomes stable ‚Äî the video
+ * `hooks.onAnchor` fires after each zone becomes stable °™ the video
  * recorder ignores it; the card screenshoter uses it to capture a clean
  * element screenshot at that step (no loading state, no full-viewport crop).
  */
@@ -46,14 +46,38 @@ export default {
     );
     await page.waitForTimeout(2000);
 
-    const settingsPanel = page.locator(".grid > div:first-child");
-    const previewCanvas = page.locator(".grid > div:last-child");
+    // Production site has multiple .grid containers; we need ONLY the left
+    // settings column (sliders + compress button), not the full grid wrapper.
+    const rangeInput = page.locator('input[type="range"]').first();
+    const settingsPanel = rangeInput.locator("xpath=ancestor::div[contains(@class,'col')][1]");
+    const previewCanvas = page.locator('canvas').first();
     anchors["settings-panel"] = await measure(page, settingsPanel);
     await hooks?.onAnchor?.("settings-panel", settingsPanel, page);
     anchors["preview-canvas"] = await measure(page, previewCanvas);
     await hooks?.onAnchor?.("preview-canvas", previewCanvas, page);
 
-    const compressBtn = page.locator("button", { hasText: /ÂéãÁº©|Compress/ }).first();
+    // Merged screenshot: settings column + 3D preview canvas side by side.
+    // Compute union of both already-measured boxes, then use page-level clip.
+    const sp = anchors["settings-panel"];
+    const pc = anchors["preview-canvas"];
+    if (sp && pc) {
+      const pad = 16;
+      anchors["settings-preview"] = {
+        x: Math.min(sp.x, pc.x) - pad,
+        y: Math.min(sp.y, pc.y) - pad,
+        w: Math.max(sp.x + sp.w, pc.x + pc.w) - Math.min(sp.x, pc.x) + pad * 2,
+        h: Math.max(sp.y + sp.h, pc.y + pc.h) - Math.min(sp.y, pc.y) + pad * 2,
+      };
+      // Pass clip rect via hook °™ card-shots will use page.screenshot({ clip })
+      await hooks?.onAnchor?.(
+        "settings-preview",
+        settingsPanel,
+        page,
+        anchors["settings-preview"],
+      );
+    }
+
+    const compressBtn = page.locator("button", { hasText: /—πÀı|Compress/ }).first();
     await compressBtn.waitFor({ state: "visible" });
     anchors["compress-button"] = await measure(page, compressBtn);
     await hooks?.onAnchor?.("compress-button", compressBtn, page);
@@ -64,22 +88,23 @@ export default {
     await page.waitForFunction(
       () => {
         const btns = Array.from(document.querySelectorAll("button"));
-        const download = btns.find((b) => /‰∏ãËΩΩ|Download/.test(b.textContent ?? ""));
+        const download = btns.find((b) => /œ¬‘ÿ|Download/.test(b.textContent ?? ""));
         return !!download && !download.disabled;
       },
       { timeout: 60000 },
     );
     await page.waitForTimeout(1500);
 
-    const downloadBtn = page.locator("button", { hasText: /‰∏ãËΩΩ|Download/ }).first();
+    const downloadBtn = page.locator("button", { hasText: /œ¬‘ÿ|Download/ }).first();
     anchors["download-result"] = await measure(page, downloadBtn);
     await hooks?.onAnchor?.("download-result", downloadBtn, page);
 
     // Re-measure the preview AFTER compression so cards can capture the
     // post-compression model. preview-canvas above was measured pre-click;
     // the same locator now resolves to the compressed result state.
-    anchors["preview-result"] = await measure(page, previewCanvas);
-    await hooks?.onAnchor?.("preview-result", previewCanvas, page);
+    const postCanvas = page.locator('canvas').first();
+    anchors["preview-result"] = await measure(page, postCanvas);
+    await hooks?.onAnchor?.("preview-result", postCanvas, page);
 
     return anchors;
   },
