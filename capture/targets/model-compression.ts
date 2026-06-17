@@ -77,25 +77,91 @@ export default {
       );
     }
 
-    const compressBtn = page.locator("button", { hasText: /—πÀı|Compress/ }).first();
-    await compressBtn.waitFor({ state: "visible" });
+    // CJK search terms built from codepoints to bypass source-file encoding issues.
+    const COMPRESS_TEXT = String.fromCharCode(0x538B, 0x7F29); // "—πÀı"
+    const COMPRESS_EN = "Compress";
+    const DOWNLOAD_TEXT = String.fromCharCode(0x4E0B, 0x8F7D); // "œ¬‘ÿ"
+    const DOWNLOAD_EN = "Download";
+
+    // The compress button may coexist with hidden/detached elements matching
+    // the same text (e.g. inside dropdowns). Use page.evaluate to find the
+    // truly visible one, then click via Playwright locator from its index.
+    // Try both CJK and English labels since --en visits /en-US/ URL.
+    let compressBtnIdx = -1;
+    for (const needle of [COMPRESS_TEXT, COMPRESS_EN]) {
+      for (let attempt = 0; attempt < 10; attempt++) {
+        compressBtnIdx = await page.evaluate(
+          ({ n }) => {
+            const btns = Array.from(document.querySelectorAll("button"));
+            return btns.findIndex((b) => {
+              const t = (b as HTMLElement).textContent ?? "";
+              if ((b as HTMLElement).offsetParent === null) return false;
+              return t.includes(n);
+            });
+          },
+          { n: needle },
+        );
+        if (compressBtnIdx >= 0) break;
+        await page.waitForTimeout(500);
+      }
+      if (compressBtnIdx >= 0) break;
+    }
+    console.log(`[flow:model-compression] Compress button index: ${compressBtnIdx}`);
+    if (compressBtnIdx === -1) {
+      throw new Error(`Compress button ("${COMPRESS_TEXT}") not found among visible buttons`);
+    }
+    const compressBtn = page.locator("button").nth(compressBtnIdx);
+    await compressBtn.waitFor({ state: "visible", timeout: 10000 });
     anchors["compress-button"] = await measure(page, compressBtn);
     await hooks?.onAnchor?.("compress-button", compressBtn, page);
 
     await compressBtn.click();
 
     console.log("[flow:model-compression] Waiting for compression to complete...");
-    await page.waitForFunction(
-      () => {
-        const btns = Array.from(document.querySelectorAll("button"));
-        const download = btns.find((b) => /œ¬‘ÿ|Download/.test(b.textContent ?? ""));
-        return !!download && !download.disabled;
-      },
-      { timeout: 60000 },
-    );
+    // Try both CJK and English download labels
+    const dlLabels = [DOWNLOAD_TEXT, DOWNLOAD_EN];
+    let dlFound = false;
+    for (const dlText of dlLabels) {
+      try {
+        await page.waitForFunction(
+          ({ d }) => {
+            const btns = Array.from(document.querySelectorAll("button"));
+            return btns.some((b) => {
+              const t = b.textContent ?? "";
+              return t.includes(d) && !b.disabled;
+            });
+          },
+          { d: dlText },
+          { timeout: 30000 },
+        );
+        dlFound = true;
+        break;
+      } catch {
+        // Try next label
+      }
+    }
+    if (!dlFound) throw new Error("Download button not found after compression (tried all labels)");
     await page.waitForTimeout(1500);
 
-    const downloadBtn = page.locator("button", { hasText: /œ¬‘ÿ|Download/ }).first();
+    // Locate download button by its visible text (try both labels)
+    let dlIdx = -1;
+    for (const dlText of dlLabels) {
+      dlIdx = await page.evaluate(
+        ({ d }) => {
+          const btns = Array.from(document.querySelectorAll("button"));
+          return btns.findIndex(
+            (b) => {
+              const t = b.textContent ?? "";
+              return t.includes(d) && (b as HTMLElement).offsetParent !== null;
+            },
+          );
+        },
+        { d: dlText },
+      );
+      if (dlIdx >= 0) break;
+    }
+    if (dlIdx === -1) throw new Error("Download button not found among visible buttons");
+    const downloadBtn = page.locator("button").nth(dlIdx);
     anchors["download-result"] = await measure(page, downloadBtn);
     await hooks?.onAnchor?.("download-result", downloadBtn, page);
 

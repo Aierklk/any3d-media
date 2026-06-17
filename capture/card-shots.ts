@@ -26,10 +26,11 @@ const ROOT = resolve(__dirname, "..");
 const VIEWPORT_W = 1440;
 const VIEWPORT_H = 900;
 
-export async function captureCardShots(targetId: string): Promise<string[]> {
+export async function captureCardShots(targetId: string, lang: string = "zh"): Promise<string[]> {
   const target = getTarget(targetId);
   const baseUrl = process.env.TARGET_BASE_URL ?? "http://localhost:3000";
-  const framesDir = join(ROOT, "tmp", target.id, "card", "frames");
+  const framesSubdir = lang === "en" ? "frames-en" : "frames";
+  const framesDir = join(ROOT, "tmp", target.id, "card", framesSubdir);
   await mkdir(framesDir, { recursive: true });
 
   console.log(`[card-shots] Launching browser for "${target.id}"...`);
@@ -54,7 +55,13 @@ export async function captureCardShots(targetId: string): Promise<string[]> {
   });
   const page = await context.newPage();
 
-  const fullUrl = baseUrl + target.url;
+  let targetUrl = target.url;
+  // When capturing English screenshots, switch the URL locale prefix so the
+  // UI renders in English (buttons, labels, etc.) instead of Chinese.
+  if (lang === "en") {
+    targetUrl = targetUrl.replace(/\/zh-CN\//, "/en-US/");
+  }
+  const fullUrl = baseUrl + targetUrl;
   console.log(`[card-shots] Navigating to ${fullUrl}`);
   await page.goto(fullUrl, { waitUntil: "networkidle" });
 
@@ -98,7 +105,8 @@ export async function captureCardShots(targetId: string): Promise<string[]> {
 }
 
 const targetId = process.argv[2] ?? "model-compression";
-captureCardShots(targetId).catch((e) => {
+const lang = (process.argv[3]?.replace(/^--/, "") ?? "zh") as string;
+captureCardShots(targetId, lang).catch((e) => {
   console.error(e);
   process.exit(1);
 });

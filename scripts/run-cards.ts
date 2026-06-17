@@ -18,7 +18,7 @@ async function main() {
 
   console.log(`\n=== Card pipeline: ${targetId} (${style}, ${lang}) ===\n`);
 
-  await captureCardShots(targetId);
+  await captureCardShots(targetId, lang);
 
   const spec = await buildToolCardSpec(targetId, style, lang);
   const { htmlPath, targets } = await generateCards(spec);
