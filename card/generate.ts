@@ -20,6 +20,8 @@ const BOARD_DIMS: Record<string, { w: number; h: number }> = {
   xhs: { w: 1080, h: 1440 },
   "wechat-wide": { w: 2100, h: 900 },
   "wechat-square": { w: 1080, h: 1080 },
+  // X (Twitter) in-feed image: 4:5 portrait, max display on mobile.
+  twitter: { w: 1080, h: 1350 },
 };
 
 const STYLE_TEMPLATE: Record<CardStyle, string> = {
@@ -105,6 +107,7 @@ function platformClass(platform: string): string {
     case "xhs": return "xhs";
     case "wechat-wide": return "wechat wide";
     case "wechat-square": return "wechat square";
+    case "twitter": return "twitter";
     default: return "xhs";
   }
 }
@@ -117,24 +120,54 @@ function renderEditorialInner(f: CardFrame): string {
   if (f.role === "cover") {
     parts.push(`        <h1 class="h-display">${f.title}</h1>`);
     if (f.subtitle) parts.push(`        <p class="h-sub">${f.subtitle}</p>`);
+  } else if (f.role === "infographic") {
+    // Infographic: title + subtitle + screenshot(s) + body + compact metrics.
+    // Distinct from cover (no h-display) and content (has subtitle + multi-shot).
+    parts.push(`        <h1 class="h-display">${f.title}</h1>`);
+    if (f.subtitle) parts.push(`        <p class="h-sub">${f.subtitle}</p>`);
+
+    // Render screenshots[] (multi) if present, else single screenshot.
+    const shots = f.screenshots ?? (f.screenshot ? [{ src: f.screenshot, aspect: f.shotAspect ?? "16x10" }] : []);
+    for (const shot of shots) {
+      const ratio = `r-${shot.aspect}`;
+      parts.push(`        <div class="frame-shot ${ratio} corners-sm shadow-soft bg-paper-2 inset-sub">`);
+      parts.push(`          <img src="${shot.src}" alt="${f.title}" style="width:100%;height:100%;object-fit:contain">`);
+      parts.push(`        </div>`);
+    }
+
+    if (f.body && f.body.length > 0) {
+      parts.push(`        <div class="body">`);
+      for (const line of f.body) parts.push(`          <p>${line}</p>`);
+      parts.push(`        </div>`);
+    }
+
+    // Compact 2×2 metric grid — fits 4 KPIs in the infographic without the
+    // tall vertical .ledger stack overflowing shorter boards (twitter 4:5).
+    if (f.metrics && f.metrics.length > 0) {
+      parts.push(`        <div class="kpi-grid" style="margin-top:auto">`);
+      for (const m of f.metrics) {
+        parts.push(`          <div class="kpi-cell"><span class="kpi-val">${m.value}</span><span class="kpi-lbl">${m.label}</span></div>`);
+      }
+      parts.push(`        </div>`);
+    }
   } else {
     parts.push(`        <h2 class="h-xl">${f.title}</h2>`);
   }
 
-  if (f.screenshot) {
+  if (f.screenshot && f.role !== "infographic") {
     const ratio = `r-${f.shotAspect ?? "16x10"}`;
     parts.push(`        <div class="frame-shot ${ratio} corners-sm shadow-soft bg-paper-2 inset-sub">`);
     parts.push(`          <img src="${f.screenshot}" alt="${f.title}" style="width:100%;height:100%;object-fit:contain">`);
     parts.push(`        </div>`);
   }
 
-  if (f.body && f.body.length > 0) {
+  if (f.body && f.role !== "infographic" && f.body.length > 0) {
     parts.push(`        <div class="body">`);
     for (const line of f.body) parts.push(`          <p>${line}</p>`);
     parts.push(`        </div>`);
   }
 
-  if (f.metrics && f.metrics.length > 0) {
+  if (f.metrics && f.role !== "infographic" && f.metrics.length > 0) {
     parts.push(`        <div class="ledger">`);
     for (const m of f.metrics) {
       parts.push(`          <div class="ledger-row"><span class="ledger-title">${m.label}</span><span class="ledger-note">${m.value}</span></div>`);

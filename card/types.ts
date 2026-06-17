@@ -8,7 +8,7 @@
 
 export type CardStyle = "editorial" | "swiss";
 
-export type Platform = "xhs" | "wechat-wide" | "wechat-square";
+export type Platform = "xhs" | "wechat-wide" | "wechat-square" | "twitter";
 
 /** 卡片文案语言。截图的 UI 语言固定跟随站点默认路由（见 capture/card-shots）。 */
 export type Lang = "zh" | "en";
@@ -26,7 +26,7 @@ export interface CardFrame {
   /** Path to a screenshot image (relative to the card HTML output dir). */
   screenshot?: string;
   /** Multiple screenshots for infographic layout (replaces single screenshot). */
-  screenshots?: Array<{ src: string; caption: string; aspect: ShotAspect }>;
+  screenshots?: Array<{ src: string; caption?: string; aspect: ShotAspect }>;
   /** Container aspect ratio for the screenshot well. Defaults to 16x10. */
   shotAspect?: ShotAspect;
   /** Optional KPI/metric items for data-style cards. */

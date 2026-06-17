@@ -58,6 +58,17 @@ export async function captureCardShots(targetId: string): Promise<string[]> {
   console.log(`[card-shots] Navigating to ${fullUrl}`);
   await page.goto(fullUrl, { waitUntil: "networkidle" });
 
+  // Hide site navbar/header so it never appears in card screenshots.
+  // Uses broad semantic selectors to survive DOM restructuring.
+  await page.addStyleTag({
+    content: `
+      nav, header,
+      [role="navigation"],
+      [data-navbar],
+      header nav { display: none !important; }
+    `,
+  });
+
   const flow = await loadFlow(target.id);
   const shots: string[] = [];
 

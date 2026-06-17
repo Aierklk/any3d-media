@@ -128,12 +128,21 @@
     .poster.xhs    { width: 1080px; height: 1440px; }
     .poster.square { width: 1080px; height: 1080px; }
     .poster.wide   { width: 2100px; height:  900px; }
+    .poster.twitter { width: 1080px; height: 1350px; }
     .poster figure { margin: 0; }
 
     .poster.xhs    .content { padding: var(--sp-12) var(--sp-11); }
     .poster.square .content { padding: var(--sp-11) var(--sp-11); }
     .poster.wide   .content { padding: var(--sp-11) var(--sp-13); }
-    .content { position: relative; width: 100%; height: 100%; z-index: 2; }
+    .poster.twitter .content { padding: var(--sp-11) var(--sp-11); }
+        .content {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+    }
 
     /* Optional decorative layers — opt in per poster */
     .dot-mat,

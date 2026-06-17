@@ -94,6 +94,11 @@ export async function buildToolCardSpec(toolId: string, style: CardStyle, lang: 
   const copy = COPY[lang];
   const [settings, compress, results] = copy.steps;
 
+  // Twitter (X) is an English-facing channel — the deck copy is always taken
+  // from the EN dictionary regardless of the requested lang, so the same
+  // `pnpm card <id> zh` run also emits an English 4:5 card for X.
+  const tw = COPY.en;
+
   const frames: CardFrame[] = [
     {
       id: "xhs-infographic",
@@ -121,6 +126,30 @@ export async function buildToolCardSpec(toolId: string, style: CardStyle, lang: 
       platform: "wechat-square",
       role: "cover",
       title: copy.squareTitle,
+    },
+    {
+      // X / Twitter in-feed image — 4:5 (1080×1350) is the max-display
+      // aspect on mobile. Always English for an international audience:
+      // copy from COPY.en, and the screenshot is the en-US UI capture
+      // written by `pnpm card:shots <id> --en` to tmp/<id>/card/frames-en/.
+      //
+      // Content is trimmed vs the xhs deck: 4:5 has less vertical room than
+      // 3:4, so we keep the 2 strongest bullets (one per step) + a wider
+      // 16:9 screenshot (flatter than 16x10 → less height consumed) so the
+      // KPI grid stays fully visible above the fold.
+      id: "twitter-infographic",
+      platform: "twitter",
+      role: "infographic",
+      title: tw.coverTitle,
+      subtitle: tw.coverSubtitle,
+      screenshots: [
+        { src: "./frames-en/settings-preview.png", aspect: "16x9" },
+      ],
+      body: [
+        tw.steps[0].body?.[0] ?? "",
+        tw.steps[1].body?.[0] ?? "",
+      ].filter(Boolean),
+      metrics: tw.steps[2].metrics,
     },
   ];
 
