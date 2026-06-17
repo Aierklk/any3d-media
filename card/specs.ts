@@ -109,7 +109,7 @@ export async function buildToolCardSpec(toolId: string, style: CardStyle, lang: 
       // All content merged into one frame — the generator builds a
       // single rich poster instead of N separate cards.
       screenshots: [
-        { src: "./frames/settings-preview.png", aspect: "4x3" },
+        { src: "./frames/result-preview.png", aspect: "4x3" },
       ],
       body: [...(settings.body ?? []), ...(compress.body ?? [])],
       metrics: results.metrics,
@@ -143,7 +143,7 @@ export async function buildToolCardSpec(toolId: string, style: CardStyle, lang: 
       title: tw.coverTitle,
       subtitle: tw.coverSubtitle,
       screenshots: [
-        { src: "./frames-en/settings-preview.png", aspect: "16x9" },
+        { src: "./frames-en/result-preview.png", aspect: "16x9" },
       ],
       body: [
         tw.steps[0].body?.[0] ?? "",

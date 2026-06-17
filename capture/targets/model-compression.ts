@@ -106,6 +106,29 @@ export default {
     anchors["preview-result"] = await measure(page, postCanvas);
     await hooks?.onAnchor?.("preview-result", postCanvas, page);
 
+    // Post-compression merged screenshot: settings column + compressed 3D preview.
+    // This is what cards display ¡ª showing the tool with results, not the
+    // empty pre-compress state. Re-measure both elements since layout may
+    // have shifted after compression.
+    const postSettings = rangeInput.locator("xpath=ancestor::div[contains(@class,'col')][1]");
+    const sp2 = await measure(page, postSettings);
+    const pc2 = anchors["preview-result"];
+    if (sp2 && pc2) {
+      const pad = 16;
+      anchors["result-preview"] = {
+        x: Math.min(sp2.x, pc2.x) - pad,
+        y: Math.min(sp2.y, pc2.y) - pad,
+        w: Math.max(sp2.x + sp2.w, pc2.x + pc2.w) - Math.min(sp2.x, pc2.x) + pad * 2,
+        h: Math.max(sp2.y + sp2.h, pc2.y + pc2.h) - Math.min(sp2.y, pc2.y) + pad * 2,
+      };
+      await hooks?.onAnchor?.(
+        "result-preview",
+        postSettings,
+        page,
+        anchors["result-preview"],
+      );
+    }
+
     return anchors;
   },
 };
